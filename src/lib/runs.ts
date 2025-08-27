@@ -45,3 +45,53 @@ export function updateRun(id: string, patch: Partial<RunRecord>) {
   }
 }
 
+export function buildMarkdown(query: string, events: Array<{ event: string; data?: any }>) {
+  const parts: string[] = []
+  parts.push(`# Research Report\n`)
+  parts.push(`**Topic:** ${query}\n`)
+  for (const e of events) {
+    parts.push(`\n## ${e.event}\n`)
+    if (e.data) {
+      parts.push('```json')
+      parts.push(JSON.stringify(e.data, null, 2))
+      parts.push('```')
+    }
+  }
+  return parts.join('\n')
+}
+
+export function downloadMarkdown(query: string, events: Array<{ event: string; data?: any }>) {
+  const md = buildMarkdown(query, events)
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'research_report.md'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function downloadPdf(
+  query: string,
+  events: Array<{ event: string; data?: any }>,
+  getAccessTokenSilently: any,
+) {
+  const sections = events.map((e) => ({ heading: e.event, body: e.data ? JSON.stringify(e.data, null, 2) : '' }))
+  const token = await getAccessTokenSilently({ authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE } })
+  const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/export/pdf`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title: `Research Report: ${query}`, sections }),
+  })
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'research_report.pdf'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+

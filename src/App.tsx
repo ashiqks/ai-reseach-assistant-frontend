@@ -1,7 +1,7 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { addRun, getRuns, updateRun, type RunRecord } from './lib/runs'
+import { addRun, downloadMarkdown, downloadPdf, getRuns, updateRun, type RunRecord } from './lib/runs'
 
 function App() {
   return (
@@ -185,6 +185,20 @@ function ProjectDetail() {
         )}
       </div>
       {runId && <div className="text-xs text-gray-500">Run ID: {runId}</div>}
+      <div className="flex gap-3">
+        <button
+          className="rounded border px-3 py-2 text-sm"
+          onClick={() => downloadMarkdown(query, events)}
+        >
+          Export Markdown
+        </button>
+        <button
+          className="rounded border px-3 py-2 text-sm"
+          onClick={() => downloadPdf(query, events, getAccessTokenSilently)}
+        >
+          Export PDF
+        </button>
+      </div>
       <div className="space-y-2">
         {events.map((e, i) => (
           <div key={i} className="rounded border bg-white p-3">
