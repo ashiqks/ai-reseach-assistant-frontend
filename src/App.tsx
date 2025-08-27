@@ -1,6 +1,7 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
+import { addRun, getRuns, updateRun, type RunRecord } from './lib/runs'
 
 function App() {
   return (
@@ -40,6 +41,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/history"
+            element={
+              <ProtectedRoute>
+                <History />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
     </div>
@@ -56,10 +65,27 @@ function Home() {
 }
 
 function Dashboard() {
+  const [runs, setRuns] = useState<RunRecord[]>(getRuns())
+  useEffect(() => {
+    setRuns(getRuns())
+  }, [])
   return (
     <div>
       <h2 className="text-2xl font-semibold">Dashboard</h2>
-      <p className="mt-2 text-sm text-gray-600">Your recent research runs will appear here.</p>
+      <div className="mt-4 space-y-2">
+        {runs.length === 0 && <p className="text-sm text-gray-600">No runs yet.</p>}
+        {runs.map((r) => (
+          <div key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">{r.query}</div>
+              <div className="text-xs text-gray-500">
+                {r.status} • {new Date(r.startedAt).toLocaleString()}
+              </div>
+            </div>
+            <div className="text-xs text-gray-500">{r.events ?? 0} events</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -94,6 +120,7 @@ function ProjectDetail() {
       if (!res.ok) throw new Error(JSON.stringify(json))
       const id = json.run_id as string
       setRunId(id)
+      addRun({ id, query, status: 'running', startedAt: new Date().toISOString(), events: 0 })
 
       const url = makeWsUrl(`/ws/research/${encodeURIComponent(id)}?q=${encodeURIComponent(query)}&user_id=0`)
       const ws = new WebSocket(url)
@@ -103,8 +130,13 @@ function ProjectDetail() {
           const msg = JSON.parse(evt.data)
           if (msg.event === 'done') {
             setStatus('done')
+            updateRun(id, { status: 'done', finishedAt: new Date().toISOString() })
           } else {
-            setEvents((prev) => [...prev, msg])
+            setEvents((prev) => {
+              const next = [...prev, msg]
+              updateRun(id, { events: next.length })
+              return next
+            })
           }
         } catch (e) {
           // ignore non-JSON frames
@@ -152,16 +184,12 @@ function ProjectDetail() {
           </button>
         )}
       </div>
-      {runId && (
-        <div className="text-xs text-gray-500">Run ID: {runId}</div>
-      )}
+      {runId && <div className="text-xs text-gray-500">Run ID: {runId}</div>}
       <div className="space-y-2">
         {events.map((e, i) => (
           <div key={i} className="rounded border bg-white p-3">
             <div className="text-xs uppercase tracking-wide text-gray-500">{e.event}</div>
-            {e.data && (
-              <pre className="mt-2 whitespace-pre-wrap break-words text-xs">{JSON.stringify(e.data, null, 2)}</pre>
-            )}
+            {e.data && <pre className="mt-2 whitespace-pre-wrap break-words text-xs">{JSON.stringify(e.data, null, 2)}</pre>}
           </div>
         ))}
         {status === 'done' && events.length === 0 && (
@@ -212,5 +240,30 @@ function AuthButtons() {
         </>
       )}
     </span>
+  )
+}
+
+function History() {
+  const [runs, setRuns] = useState<RunRecord[]>(getRuns())
+  useEffect(() => {
+    setRuns(getRuns())
+  }, [])
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold">History</h2>
+      <div className="mt-4 space-y-2">
+        {runs.length === 0 && <p className="text-sm text-gray-600">No runs yet.</p>}
+        {runs.map((r) => (
+          <div key={r.id} className="rounded border bg-white p-3 text-sm">
+            <div className="font-medium">{r.query}</div>
+            <div className="text-xs text-gray-500">{r.status} • started {new Date(r.startedAt).toLocaleString()}</div>
+            {r.finishedAt && (
+              <div className="text-xs text-gray-500">finished {new Date(r.finishedAt).toLocaleString()}</div>
+            )}
+            <div className="text-xs text-gray-500">{r.events ?? 0} events</div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
