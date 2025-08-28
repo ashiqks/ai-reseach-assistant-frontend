@@ -1,7 +1,7 @@
 import { Link, Route, Routes, Navigate } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { addRun, downloadMarkdown, downloadPdf, getRuns, updateRun, type RunRecord } from './lib/runs'
+import { addRun, downloadPdf, getRuns, updateRun, type RunRecord } from './lib/runs'
 
 function App() {
   return (
@@ -200,12 +200,6 @@ function ProjectDetail() {
       <div className="flex gap-3">
         <button
           className="rounded border px-3 py-2 text-sm"
-          onClick={() => downloadMarkdown(query, events)}
-        >
-          Export Markdown
-        </button>
-        <button
-          className="rounded border px-3 py-2 text-sm"
           onClick={() => downloadPdf(query, events, getAccessTokenSilently)}
         >
           Export PDF
@@ -325,9 +319,6 @@ function RunActions({ runId }: { runId: number }) {
     <div className="flex items-center gap-2">
       <button className="rounded border px-2 py-1 text-xs" onClick={loadEvents} disabled={loading}>
         {loading ? 'Loading…' : 'Load'}
-      </button>
-      <button className="rounded border px-2 py-1 text-xs" onClick={() => downloadMarkdown(`Run #${runId}`, events)} disabled={!events.length}>
-        Export MD
       </button>
       <button className="rounded border px-2 py-1 text-xs" onClick={() => downloadPdf(`Run #${runId}`, events, getAccessTokenSilently)} disabled={!events.length}>
         Export PDF

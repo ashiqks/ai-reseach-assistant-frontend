@@ -45,41 +45,6 @@ export function updateRun(id: string, patch: Partial<RunRecord>) {
   }
 }
 
-export function buildMarkdown(query: string, events: Array<{ event: string; data?: any }>) {
-  const parts: string[] = []
-  parts.push(`# Research Report: ${query}\n`)
-  const hits = events.find(e => e.event === 'search')?.data?.hits || []
-  const summary = events.find(e => e.event === 'summary')?.data?.text || ''
-  const recs: string[] = events.find(e => e.event === 'recommendations')?.data?.items || []
-
-  if (summary) {
-    parts.push(`\n## Executive Summary\n`)
-    parts.push(summary)
-  }
-  if (hits.length) {
-    parts.push(`\n## Sources\n`)
-    for (const h of hits) {
-      if (h.title && h.url) parts.push(`- [${h.title}](${h.url})`)
-    }
-  }
-  if (recs.length) {
-    parts.push(`\n## Recommendations\n`)
-    for (const r of recs) parts.push(`- ${r}`)
-  }
-  return parts.join('\n')
-}
-
-export function downloadMarkdown(query: string, events: Array<{ event: string; data?: any }>) {
-  const md = buildMarkdown(query, events)
-  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'research_report.md'
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export async function downloadPdf(
   query: string,
   events: Array<{ event: string; data?: any }>,
