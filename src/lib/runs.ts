@@ -47,15 +47,24 @@ export function updateRun(id: string, patch: Partial<RunRecord>) {
 
 export function buildMarkdown(query: string, events: Array<{ event: string; data?: any }>) {
   const parts: string[] = []
-  parts.push(`# Research Report\n`)
-  parts.push(`**Topic:** ${query}\n`)
-  for (const e of events) {
-    parts.push(`\n## ${e.event}\n`)
-    if (e.data) {
-      parts.push('```json')
-      parts.push(JSON.stringify(e.data, null, 2))
-      parts.push('```')
+  parts.push(`# Research Report: ${query}\n`)
+  const hits = events.find(e => e.event === 'search')?.data?.hits || []
+  const summary = events.find(e => e.event === 'summary')?.data?.text || ''
+  const recs: string[] = events.find(e => e.event === 'recommendations')?.data?.items || []
+
+  if (summary) {
+    parts.push(`\n## Executive Summary\n`)
+    parts.push(summary)
+  }
+  if (hits.length) {
+    parts.push(`\n## Sources\n`)
+    for (const h of hits) {
+      if (h.title && h.url) parts.push(`- [${h.title}](${h.url})`)
     }
+  }
+  if (recs.length) {
+    parts.push(`\n## Recommendations\n`)
+    for (const r of recs) parts.push(`- ${r}`)
   }
   return parts.join('\n')
 }
@@ -76,7 +85,24 @@ export async function downloadPdf(
   events: Array<{ event: string; data?: any }>,
   getAccessTokenSilently: any,
 ) {
-  const sections = events.map((e) => ({ heading: e.event, body: e.data ? JSON.stringify(e.data, null, 2) : '' }))
+  const hits = events.find(e => e.event === 'search')?.data?.hits || []
+  const summary = events.find(e => e.event === 'summary')?.data?.text || ''
+  const recs: string[] = events.find(e => e.event === 'recommendations')?.data?.items || []
+
+  const sections: Array<{ heading: string; body: string }> = []
+  if (summary) {
+    sections.push({ heading: 'Executive Summary', body: summary })
+  }
+  if (hits.length) {
+    const body = hits
+      .filter((h: any) => h.title && h.url)
+      .map((h: any) => `• ${h.title} — ${h.url}`)
+      .join('\n')
+    sections.push({ heading: 'Sources', body })
+  }
+  if (recs.length) {
+    sections.push({ heading: 'Recommendations', body: recs.map(r => `• ${r}`).join('\n') })
+  }
   const token = await getAccessTokenSilently({ authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE } })
   const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/export/pdf`, {
     method: 'POST',

@@ -65,10 +65,22 @@ function Home() {
 }
 
 function Dashboard() {
-  const [runs, setRuns] = useState<RunRecord[]>(getRuns())
+  const { getAccessTokenSilently } = useAuth0()
+  const [runs, setRuns] = useState<Array<{ id: number; status: string; created_at?: string; completed_at?: string }>>([])
+
   useEffect(() => {
-    setRuns(getRuns())
-  }, [])
+    (async () => {
+      try {
+        const token = await getAccessTokenSilently({ authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE } })
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/runs`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const json = await res.json()
+        setRuns(json.runs || [])
+      } catch {}
+    })()
+  }, [getAccessTokenSilently])
+
   return (
     <div>
       <h2 className="text-2xl font-semibold">Dashboard</h2>
@@ -77,12 +89,12 @@ function Dashboard() {
         {runs.map((r) => (
           <div key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
             <div>
-              <div className="font-medium">{r.query}</div>
+              <div className="font-medium">Run #{r.id}</div>
               <div className="text-xs text-gray-500">
-                {r.status} • {new Date(r.startedAt).toLocaleString()}
+                {r.status} • {r.created_at ? new Date(r.created_at).toLocaleString() : ''}
               </div>
             </div>
-            <div className="text-xs text-gray-500">{r.events ?? 0} events</div>
+            <RunActions runId={r.id} />
           </div>
         ))}
       </div>
@@ -258,26 +270,68 @@ function AuthButtons() {
 }
 
 function History() {
-  const [runs, setRuns] = useState<RunRecord[]>(getRuns())
+  const { getAccessTokenSilently } = useAuth0()
+  const [runs, setRuns] = useState<Array<{ id: number; status: string; created_at?: string; completed_at?: string }>>([])
   useEffect(() => {
-    setRuns(getRuns())
-  }, [])
+    (async () => {
+      try {
+        const token = await getAccessTokenSilently({ authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE } })
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/runs`, { headers: { Authorization: `Bearer ${token}` } })
+        const json = await res.json()
+        setRuns(json.runs || [])
+      } catch {}
+    })()
+  }, [getAccessTokenSilently])
   return (
     <div>
       <h2 className="text-2xl font-semibold">History</h2>
       <div className="mt-4 space-y-2">
         {runs.length === 0 && <p className="text-sm text-gray-600">No runs yet.</p>}
         {runs.map((r) => (
-          <div key={r.id} className="rounded border bg-white p-3 text-sm">
-            <div className="font-medium">{r.query}</div>
-            <div className="text-xs text-gray-500">{r.status} • started {new Date(r.startedAt).toLocaleString()}</div>
-            {r.finishedAt && (
-              <div className="text-xs text-gray-500">finished {new Date(r.finishedAt).toLocaleString()}</div>
-            )}
-            <div className="text-xs text-gray-500">{r.events ?? 0} events</div>
+          <div key={r.id} className="rounded border bg-white p-3 text-sm flex items-center justify-between">
+            <div>
+              <div className="font-medium">Run #{r.id}</div>
+              <div className="text-xs text-gray-500">{r.status} • started {r.created_at ? new Date(r.created_at).toLocaleString() : ''}</div>
+              {r.completed_at && (
+                <div className="text-xs text-gray-500">finished {new Date(r.completed_at).toLocaleString()}</div>
+              )}
+            </div>
+            <RunActions runId={r.id} />
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+function RunActions({ runId }: { runId: number }) {
+  const { getAccessTokenSilently } = useAuth0()
+  const [loading, setLoading] = useState(false)
+  const [events, setEvents] = useState<Array<{ event: string; data?: any }>>([])
+
+  async function loadEvents() {
+    setLoading(true)
+    try {
+      const token = await getAccessTokenSilently({ authorizationParams: { audience: import.meta.env.VITE_AUTH0_AUDIENCE } })
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/runs/${runId}/events`, { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json()
+      setEvents(json.events || [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <button className="rounded border px-2 py-1 text-xs" onClick={loadEvents} disabled={loading}>
+        {loading ? 'Loading…' : 'Load'}
+      </button>
+      <button className="rounded border px-2 py-1 text-xs" onClick={() => downloadMarkdown(`Run #${runId}`, events)} disabled={!events.length}>
+        Export MD
+      </button>
+      <button className="rounded border px-2 py-1 text-xs" onClick={() => downloadPdf(`Run #${runId}`, events, getAccessTokenSilently)} disabled={!events.length}>
+        Export PDF
+      </button>
     </div>
   )
 }
